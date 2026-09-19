@@ -1,6 +1,8 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Syne } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import CookieBanner from "./components/CookieBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,8 +48,10 @@ export default function RootLayout({
       lang="cs"
       className={`${geistSans.variable} ${geistMono.variable} ${syne.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-background text-foreground selection:bg-foreground selection:text-background">
         {children}
+        <CookieBanner />
+        <GoogleAnalytics gaId="G-XXXXXXXXXX" />
       </body>
     </html>
   );
