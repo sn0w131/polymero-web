@@ -2,58 +2,111 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment, ContactShadows, useGLTF, Center } from "@react-three/drei";
-import { Suspense, useEffect } from "react";
+import { OrbitControls, Environment, ContactShadows, useGLTF } from "@react-three/drei";
+import { Suspense, useEffect, useMemo } from "react";
 import * as THREE from "three";
 
-function RealModel() {
-  // Načtení reálného modelu ze složky public/models/
-  const { scene } = useGLTF("/models/tray.glb");
+// Definice možných parametrů, které nám pošle UI konfigurátoru
+interface TrayModelProps {
+  baseColor?: string;
+  textColor?: string;
+  materialType?: "matte" | "wood" | "metal" | "translucent";
+}
 
-  // Vynucení industriálního PLA vzhledu (přepíše defaultní materiály z exportu)
+function RealModel({ baseColor = "#161616", textColor = "#888888", materialType = "matte" }: TrayModelProps) {
+  const { scene } = useGLTF("/models/tray.glb?v=8");
+
+  // useMemo zajistí, že se materiály přepočítají POUZE tehdy, když uživatel klikne na novou barvu
+  const materials = useMemo(() => {
+    // Výchozí hodnoty pro matné PLA
+    let roughness = 0.85;
+    let metalness = 0.0;
+    let transmission = 0.0;
+    let thickness = 0.0;
+    let transparent = false;
+    let opacity = 1.0;
+
+    // Logika pro různé typy filamentů
+    if (materialType === "metal") {
+      roughness = 0.3;
+      metalness = 0.8;
+    } else if (materialType === "wood") {
+      roughness = 0.9;
+      metalness = 0.0;
+      // Zde později přidáme bump mapu (texturu dřeva)
+    } else if (materialType === "translucent") {
+      roughness = 0.2;
+      metalness = 0.1;
+      transmission = 0.9; // Efekt matného skla / průsvitného plastu
+      thickness = 2.0;    // Jak moc se láme světlo
+      transparent = true;
+      opacity = 0.9;
+    }
+
+    return {
+      body: new THREE.MeshPhysicalMaterial({
+        color: baseColor,
+        roughness,
+        metalness,
+        transmission,
+        thickness,
+        transparent,
+        opacity,
+      }),
+      text: new THREE.MeshStandardMaterial({
+        color: textColor,
+        roughness: 0.5,
+        metalness: 0.2,
+      })
+    };
+  }, [baseColor, textColor, materialType]);
+
   useEffect(() => {
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: "#181818", // Tmavě šedá/černá
-          roughness: 0.65,  // Matný PLA povrch
-          metalness: 0.1,   // Jemný odlesk hran
-        });
+        child.geometry.computeVertexNormals();
+
+        if (child.name.includes("2") || child.name.includes("3") || child.name.includes("text")) {
+          child.material = materials.text;
+        } else {
+          child.material = materials.body;
+        }
+        
+        child.castShadow = true; 
+        child.receiveShadow = true; 
       }
     });
-  }, [scene]);
+  }, [scene, materials]);
 
-  // scale={0.01} převede milimetry z Fusion 360 na metry pro Three.js
   return <primitive object={scene} scale={0.01} />;
 }
 
-// Přednačtení modelu pro okamžité zobrazení
-useGLTF.preload("/models/tray.glb");
+useGLTF.preload("/models/tray.glb?v=8");
 
-export default function TrayModel() {
+// Komponenta nyní přijímá props z nadřazené stránky
+export default function TrayModel({ baseColor, textColor, materialType }: TrayModelProps) {
   return (
     <div className="w-full h-[400px] md:h-[600px] cursor-grab active:cursor-grabbing bg-transparent">
-      <Canvas camera={{ position: [0, 2, 4], fov: 45 }}>
-        <ambientLight intensity={0.8} />
-        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} />
-        <spotLight position={[-10, 5, -10]} angle={0.2} penumbra={1} intensity={1} color="#ffffff" />
+      <Canvas camera={{ position: [0, 3, 5.5], fov: 45 }}>
+        <ambientLight intensity={0.9} />
+        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1.5} />
+        <spotLight position={[-10, 5, -10]} angle={0.2} penumbra={1} intensity={0.8} color="#ffffff" />
         
         <Environment preset="studio" />
         
         <Suspense fallback={null}>
-          <Center position={[0, 0, 0]}>
-            <RealModel />
-          </Center>
+          <RealModel baseColor={baseColor} textColor={textColor} materialType={materialType} />
         </Suspense>
 
-        <ContactShadows position={[0, -0.2, 0]} opacity={0.7} scale={5} blur={2} far={4} color="#000000" />
+        <ContactShadows position={[0, -0.01, 0]} opacity={0.7} scale={10} blur={2.5} far={4} color="#000000" />
         
         <OrbitControls 
           autoRotate 
           autoRotateSpeed={1.0} 
           enableZoom={false} 
           enablePan={false}
-          maxPolarAngle={Math.PI / 2.1} 
+          maxPolarAngle={Math.PI / 2.1}
+          target={[0, 1.25, 0]} 
         />
       </Canvas>
     </div>

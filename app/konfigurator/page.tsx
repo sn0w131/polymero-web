@@ -1,6 +1,8 @@
+// app/konfigurator/page.tsx
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import TrayModel from "../components/TrayModel"; // Import našeho 3D modelu
 
 // KOMPLETNÍ DATABÁZE MATERIÁLŮ S CHYTROU CENOTVORBOU
 const materialyData: Record<string, { nazev: string; priplatek: number; barvy: { jmeno: string; hex: string }[] }> = {
@@ -19,6 +21,14 @@ const materialyData: Record<string, { nazev: string; priplatek: number; barvy: {
 type KonfiguraceDilu = {
   kategorie: string;
   barvaIndex: number;
+};
+
+// Pomocná funkce pro mapování tvých kategorií na fyzikální vlastnosti v TrayModelu
+const ziskatTypMaterialu = (kategorie: string): "matte" | "wood" | "metal" | "translucent" => {
+  if (['silk', 'metal', 'galaxy', 'sparkle', 'cf'].includes(kategorie)) return 'metal';
+  if (['translucent', 'glow'].includes(kategorie)) return 'translucent';
+  // Pokud přidáš wood, stačí odkomentovat: if (kategorie === 'wood') return 'wood';
+  return 'matte';
 };
 
 export default function Configurator() {
@@ -83,6 +93,10 @@ export default function Configurator() {
     rozsireni3: "Přídavné rozšíření 3",
   };
 
+  // Získání aktuální barvy a materiálu pro 3D vizualizaci hlavního tácu
+  const currentBaseColor = materialyData[dily["hlavni"].kategorie].barvy[dily["hlavni"].barvaIndex].hex;
+  const currentMaterialType = ziskatTypMaterialu(dily["hlavni"].kategorie);
+
   return (
     <main className="min-h-screen bg-background text-foreground pb-20 selection:bg-gray-200 selection:text-black">
       
@@ -107,31 +121,22 @@ export default function Configurator() {
           
           {/* LEVÁ STRANA */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="aspect-video bg-gray-50 rounded-3xl border border-gray-200 flex items-center justify-center shadow-sm relative overflow-hidden group">
+            
+            {/* 3D VIZUALIZACE */}
+            <div className="bg-gray-50 rounded-3xl border border-gray-200 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent opacity-50 z-10"></div>
               
-              <div className="flex w-full h-full opacity-60">
-                <div 
-                  className="h-full transition-colors duration-500" 
-                  style={{ 
-                    backgroundColor: materialyData[dily["hlavni"].kategorie].barvy[dily["hlavni"].barvaIndex].hex,
-                    width: `${100 / (pocetRozsireni + 1)}%` 
-                  }}
-                ></div>
-                {Object.entries(dily).filter(([id]) => id !== "hlavni").map(([id, config]) => (
-                  <div 
-                    key={id}
-                    className="h-full border-l border-white/50 transition-colors duration-500" 
-                    style={{ 
-                      backgroundColor: materialyData[config.kategorie].barvy[config.barvaIndex].hex,
-                      width: `${100 / (pocetRozsireni + 1)}%`
-                    }}
-                  ></div>
-                ))}
+              {/* Obal pro 3D model - nastavená pevná výška pro responzivitu */}
+              <div className="w-full h-[400px] md:h-[500px] relative z-0">
+                <TrayModel 
+                  baseColor={currentBaseColor} 
+                  materialType={currentMaterialType} 
+                  textColor="#888888" 
+                />
               </div>
 
-              {/* Informační štítek na fotce */}
-              <div className="absolute bottom-6 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-gray-200 shadow-lg max-w-md w-full">
+              {/* Informační štítek - Upraveno na hover efekt, aby nepřekážel rotaci 3D modelu na mobilech */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-gray-200 shadow-lg max-w-md w-[90%]">
                  <p className="text-black font-semibold text-xs tracking-wide mb-1 text-center uppercase">Aktuální konfigurace</p>
                  <div className="space-y-1 text-sm text-center">
                     <p><span className="text-gray-500">Hlavní:</span> {materialyData[dily["hlavni"].kategorie].nazev} ({materialyData[dily["hlavni"].kategorie].barvy[dily["hlavni"].barvaIndex].jmeno})</p>
@@ -146,13 +151,13 @@ export default function Configurator() {
               <h4 className="font-headline text-titanium font-bold mb-3 text-lg">Ke každému setu v balení:</h4>
               <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-titanium-muted">
                 <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: materialyData[dily["hlavni"].kategorie].barvy[dily["hlavni"].barvaIndex].hex }}></div> Pěchovadlo (Poker)
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: currentBaseColor }}></div> Pěchovadlo (Poker)
                 </li>
                 <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: materialyData[dily["hlavni"].kategorie].barvy[dily["hlavni"].barvaIndex].hex }}></div> Klíčenka POLYMERO
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: currentBaseColor }}></div> Klíčenka POLYMERO
                 </li>
                 <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: materialyData[dily["hlavni"].kategorie].barvy[dily["hlavni"].barvaIndex].hex }}></div> Sběrná karta
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: currentBaseColor }}></div> Sběrná karta
                 </li>
               </ul>
             </div>
